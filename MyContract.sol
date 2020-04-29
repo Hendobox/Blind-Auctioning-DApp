@@ -1,11 +1,12 @@
-pragma solidity 0.5.0;
+pragma solidity >=0.5.0 < 0.6.0;
 
-contract BlindAuction {
+import "./DappToken.sol";
+
+contract BlindAuction is DappToken {
     address owner;
     uint256 public maxAdmins;
     uint256 public adminIndex = 0;
     uint256 public memberCount = 0;
-    //Listing[] propertyList;
     
     enum Status {
         ForSale,
@@ -22,28 +23,31 @@ contract BlindAuction {
         string fullName;
         string email;
         bool isWhitelisted;
-        mapping (string => Property) properties;
+        mapping (uint256 => Property) properties;
         //Property[] property;
     }
     
     struct Property {
-        string propertyOwner;
         string description;
         uint256 value;
+        Status status;
     }
     
     struct Listing {
         uint256 listingId;
+        Property property;
         uint256 reservePrice;
         bytes32 description;
-        Status status;
         uint256[] bids;
     }
     
     mapping (address => Admin) public admins;   
     mapping (address => Member) public members;
-    mapping (uint256 => Listing) public listings;
+    mapping (uint256 => Listing) listings;
     mapping (address => uint256) public balances;
+    mapping (uint256 => uint256[]) public bids;
+    
+    event NewAuction(uint256 indexed _listingId, uint256 indexed _reservePrice, bytes32 _description, address _propertyOwner);
     
     modifier onlyOwner() {
         require(owner == msg.sender, 'Only owner can make this call');
@@ -103,7 +107,7 @@ contract BlindAuction {
         _memberStruct.fullName = _fullName;
         _memberStruct.email = _email;
         _memberStruct.isWhitelisted = true;
-        memberCount += 1;
+        memberCount++;
     }
     
     function whiteListMember(address _addr) external onlyAdmin onlyBlacklistedMember(_addr){
@@ -117,17 +121,15 @@ contract BlindAuction {
        memberStruct.isWhitelisted = false;
     }
     
-    function addListing(uint256 _listingId, uint256 _reservePrice, bytes32 _description) external onlyAdmin {
-        //if(listings[_listingId].status = ForSale) {
-          //  revert('Already listed');
-        //}else{
-        //    listings[_listingId].status = Status.ForSale;
-       // }
+    function openBidding(uint256 _listingId, uint256 _reservePrice, bytes32 _description, address _propertyOwner) external onlyAdmin {
         Listing storage _listingStruct = listings[_listingId];
         _listingStruct.listingId = _listingId;
         _listingStruct.reservePrice = _reservePrice;
         _listingStruct.description = _description;
-        //propertyList.push(listings[_listingId]);
+        members[_propertyOwner].properties[_listingId].status = Status.ForSale;
+        Property memory property; 
+        members[_propertyOwner].properties[_listingId] = property;
+        emit NewAuction(_listingId, _reservePrice, _description, _propertyOwner);
     }
     
    // function getListings() external view returns(uint256, uint256, bytes32){
@@ -136,11 +138,19 @@ contract BlindAuction {
    //     return (listingId, reservePrice, description);
    // }
    
-   function bid(uint256 _listingId, uint256 _bidPrice, address _addr) external onlyWhitelistedMember(_addr){
+    function bid(uint256 _listingId, uint256 _bidPrice, address _addr) external onlyWhitelistedMember(_addr){
        require(balances[_addr] >= _bidPrice, 'Insufficient funds');
        Listing storage _listingStruct = listings[_listingId];
        _listingStruct.listingId = _listingId;
-       _listingStruct.bids.push(_bidPrice);
-   }
-       
+       super.approve(address(this), _bidPrice);
+       bids[_listingId].push(_bidPrice);
+    }
+
+   // function closeBidding(uint256 _listingId, address _property)
+    
+    
+    
 }
+    
+    
+    
